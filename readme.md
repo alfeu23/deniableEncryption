@@ -1,32 +1,55 @@
 # Deniable Encryption Voting System
 
-A demonstration of deniable encryption capabilities in a voting context for computational security research. This system allows voters to cast votes while maintaining plausible deniability about their actual choice.
+A demonstration of deniable encryption capabilities in a voting context for computational security research. This system allows voters to cast votes while maintaining plausible deniability about their actual choice through cryptographic receipts.
 
 ## Overview
 
-This project implements a voting system where voters can vote for one of two candidates and later generate cryptographic "proof" that they voted for either candidate, regardless of their actual vote. This demonstrates the concept of deniable encryption where the same ciphertext can be plausibly decrypted to different plaintexts using different keys.
+This project implements a voting system where voters can vote for one of two candidates (`Jair Alfeu` or `Luiz Ferreira`) and receive both real and fake receipts. The system demonstrates deniable encryption where voters can produce cryptographic "proof" that they voted for either candidate, regardless of their actual vote.
 
 ## How Deniable Encryption Works
 
-The system uses XOR-based deniable encryption:
+The system uses a dual-ciphertext XOR-based deniable encryption scheme:
 
-1. **Single Ciphertext**: One encrypted message is created
-2. **Dual Keys**: Two different keys are generated
-3. **Dual Decryption**: The same ciphertext decrypts to different candidates depending on which key is used
-4. **Mathematical Validity**: Both decryptions are cryptographically valid and indistinguishable
+1. **Dual Ciphertexts**: Two ciphertexts (C1, C2) are generated for each vote
+2. **Dual Keys**: Two different keys are created - one real, one fake
+3. **Plausible Decryption**: The same ciphertext pair can decrypt to either candidate depending on which key is used
+4. **Cryptographic Receipts**: Both receipts are mathematically valid and indistinguishable
 
-### Example:
-- `ciphertext XOR key1 = "Jair Alfeu"`
-- `ciphertext XOR key2 = "Luiz Ferreira"`
-- Both results appear equally legitimate
+### Technical Implementation:
+- `C1 = nonce ⊕ realKey`
+- `C2 = candidateVote ⊕ nonce`
+- `fakeKey` computed to make `C1 ⊕ fakeKey = nonce'` where `C2 ⊕ nonce' = otherCandidate`
 
 ## Features
 
-- **XOR-based deniable encryption** implementation
-- **REST API** for voting and receipt generation  
-- **Cryptographic receipts** with verifiable signatures
-- **Deniable proof generation** for either candidate
-- **Educational demonstration** of privacy-preserving cryptography
+- **XOR-based deniable encryption** with dual-key generation
+- **REST API** for voting, receipt retrieval, and verification
+- **Dual receipt system** (real and fake receipts per vote)
+- **Cryptographic signatures** for receipt authenticity
+- **Election results** aggregation
+- **Voter registry** to prevent double voting
+- **Administrative cache flushing**
+
+## Project Structure
+
+```
+deniableEncryption/
+├── cmd/
+│   └── main.go              # Application entry point
+├── handlers/
+│   ├── election.go          # Election results handler
+│   ├── flush.go             # Cache management
+│   ├── helper.go            # Crypto utilities & storage
+│   ├── receit.go            # Receipt retrieval & verification
+│   └── vote.go              # Vote submission
+├── models/
+│   └── model.go             # Data structures
+├── routes/
+│   └── routes.go            # HTTP route definitions
+├── coverage/                # Test coverage reports
+├── go.mod                   # Go module dependencies
+└── readme.md               # This file
+```
 
 ## API Endpoints
 
@@ -45,13 +68,14 @@ Submit a vote for a candidate.
 ```json
 {
   "vote_id": "abc123def456",
-  "receipt_id": "789ghi012jkl", 
-  "message": "Vote recorded successfully"
+  "real_receipt_id": "real789ghi012jkl",
+  "fake_receipt_id": "fake456def789abc", 
+  "message": "Vote recorded successfully with both receipts"
 }
 ```
 
 ### GET /receipt/{receipt_id}
-Retrieve a voting receipt with cryptographic proof.
+Retrieve a voting receipt (real or fake).
 
 **Response:**
 ```json
@@ -59,64 +83,68 @@ Retrieve a voting receipt with cryptographic proof.
   "id": "789ghi012jkl",
   "vote_id": "abc123def456",
   "candidate": "Jair Alfeu",
-  "timestamp": "2025-07-07T10:30:00Z",
+  "timestamp": "2025-01-27T10:30:00Z",
   "signature": "sha256_hash_signature",
   "deniable_data": "hex_encoded_ciphertext"
 }
 ```
 
-### POST /deny/{vote_id}
-Generate deniable proof for a different candidate.
-
-**Request Body:**
-```json
-{
-  "desired_candidate": "Luiz Ferreira"
-}
-```
+### GET /verify/{receipt_id}
+Verify a receipt and get cryptographic proof.
 
 **Response:**
 ```json
 {
-  "ciphertext": "hex_encoded_ciphertext",
+  "C1": "hex_encoded_ciphertext1",
+  "C2": "hex_encoded_ciphertext2",
   "key": "hex_encoded_key",
-  "decrypted": "Luiz Ferreira",
-  "message": "This proves the vote was for Luiz Ferreira"
+  "decrypted": "Jair Alfeu",
+  "message": "This proves the vote was for Jair Alfeu",
+  "type": "real_receipt"
 }
 ```
 
-## Project Structure
+### GET /election/results
+Get current election results.
 
+**Response:**
+```json
+{
+  "total_votes": 42,
+  "results": {
+    "Jair Alfeu": 23,
+    "Luiz Ferreira": 19
+  },
+  "winner": "Jair Alfeu"
+}
 ```
-deniableEncryption/
-├── api/
-│   └── cmd/
-│       └── main.go          # Application entry point
-├── handlers/
-│   └── handler.go           # HTTP request handlers
-├── models/
-│   └── models.go            # Data structures
-├── static/                  # Frontend files (optional)
-├── go.mod                   # Go module dependencies
+
+### POST /admin/flush
+Reset all voting data (administrative endpoint).
+
+**Response:**
+```json
+{
+  "message": "Cache flushed successfully",
+  "status": "success"
+}
 ```
 
 ## Installation & Running
 
-1. **Initialize the project:**
+1. **Clone and navigate to the project:**
 ```bash
 cd /Users/deliverymuch/UFSC/deniableEncryption
-go mod init deniableEncryption
-go mod tidy
 ```
 
 2. **Install dependencies:**
 ```bash
-go get github.com/gorilla/mux
+go mod tidy
 ```
 
 3. **Run the application:**
 ```bash
-go run api/cmd/main.go
+go run cmd/main.go
 ```
 
 4. **Access the API:**
@@ -131,24 +159,43 @@ curl -X POST http://localhost:3000/vote \
   -H "Content-Type: application/json" \
   -d '{"candidate": "Jair Alfeu", "voter_id": "voter123"}'
 
-# Get receipt
+# Get a receipt (real or fake)
 curl http://localhost:3000/receipt/{receipt_id}
 
-# Generate deniable proof for the other candidate
-curl -X POST http://localhost:3000/deny/{vote_id} \
-  -H "Content-Type: application/json" \
-  -d '{"desired_candidate": "Luiz Ferreira"}'
+# Verify receipt and get cryptographic proof
+curl http://localhost:3000/verify/{receipt_id}
+
+# Check election results
+curl http://localhost:3000/election/results
+
+# Reset system (admin only)
+curl -X POST http://localhost:3000/admin/flush
 ```
 
 ## Security Properties
 
-- **Plausible Deniability**: Impossible to prove which candidate was actually voted for
-- **Cryptographic Validity**: Both "proofs" are mathematically sound
-- **Coercion Resistance**: Voters can satisfy any coercer by showing fake proof
-- **Privacy Protection**: True voting preferences remain hidden
+- **Plausible Deniability**: Voters receive both real and fake receipts, making it impossible to prove which candidate they actually voted for
+- **Cryptographic Validity**: Both receipts have valid signatures and can be verified
+- **Coercion Resistance**: Voters can show either receipt to satisfy coercers
+- **Double Voting Prevention**: Voter registry prevents multiple votes from same voter ID
+- **Privacy Protection**: True voting preferences remain cryptographically hidden
 
-## Further Reading
+## Key Components
 
-- [Deniable Encryption (Canetti et al.)](https://en.wikipedia.org/wiki/Deniable_encryption)
-- [Coercion-Resistant Electronic Elections](https://www.usenix.org/legacy/event/sec05/tech/full_papers/juels/juels.pdf)
-- [Privacy-Preserving Cryptography](https://en.wikipedia.org/wiki/Privacy-preserving_cryptography)
+- **[`models.DeniableEncryption`](models/model.go)**: Core encryption structure with dual keys
+- **[`handlers.createDeniableEncryption`](handlers/helper.go)**: Generates deniable encryption for votes
+- **[`handlers.doDecryption`](handlers/helper.go)**: Decrypts ciphertext with provided key
+- **[`handlers.generateDeniableSignature`](handlers/helper.go)**: Creates cryptographic signatures
+- **[`routes.SetupRoutes`](routes/routes.go)**: HTTP route configuration
+
+## Dependencies
+
+- **[gorilla/mux](https://github.com/gorilla/mux)**: HTTP router for REST API
+- **Go standard library**: crypto/rand, crypto/sha256, encoding/hex, etc.
+
+## Research Context
+
+This implementation demonstrates key concepts in:
+- **Deniable Encryption**: Cryptographic systems that allow plausible denial
+- **Coercion-Resistant Voting**: Protecting voter privacy against coercion
+- **Privacy-Preserving Cryptography**: Maintaining confidentiality while enabling verification
