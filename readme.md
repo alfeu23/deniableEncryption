@@ -132,22 +132,17 @@ Reset all voting data (administrative endpoint).
 
 ## Installation & Running
 
-1. **Clone and navigate to the project:**
-```bash
-cd /Users/deliverymuch/UFSC/deniableEncryption
-```
-
-2. **Install dependencies:**
+1. **Install dependencies:**
 ```bash
 go mod tidy
 ```
 
-3. **Run the application:**
+2. **Run the application:**
 ```bash
 go run cmd/main.go
 ```
 
-4. **Access the API:**
+3. **Access the API:**
 - Server runs on `http://localhost:3000`
 - Use curl, Postman, or any HTTP client to test endpoints
 
